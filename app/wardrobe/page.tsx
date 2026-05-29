@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import OutfitCanvas from '../components/OutfitCanvas';
+import OutfitCanvas from '../components/outfitCanvas';
 
-export default function WardrobePage() {
+export default function WardrobePage () {
   const [items, setItems] = useState<any[]>([]);
   const [outfits, setOutfits] = useState<any[]>([]);
   const [outfitDetails, setOutfitDetails] = useState<any[]>([]);

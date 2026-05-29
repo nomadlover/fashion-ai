@@ -1,47 +1,88 @@
-import Link from 'next/link';
+'use client';
 
-export default function Home() {
+import { useState } from 'react';
+
+export default function UploadPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      setFile(selected);
+      setPreview(URL.createObjectURL(selected));
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setAnalyzing(true);
+
+    const fakeUserId = 'user-123';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', fakeUserId);
+
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    setAnalyzing(false);
+    setResult(data);
+  };
+
   return (
-    <div className="min-h-screen bg-white text-black">
-      {/* Navbar */}
-      <nav className="flex justify-between items-center p-6 border-b">
-        <h1 className="text-2xl font-bold tracking-tight">FASHION AI</h1>
-        <div className="flex gap-4">
-          <Link href="/upload" className="px-4 py-2 border rounded-lg hover:bg-black hover:text-white transition">
-            Upload Item
-          </Link>
-          <Link href="/wardrobe" className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition">
-            My Wardrobe
-          </Link>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <div className="max-w-4xl mx-auto text-center py-24 px-6">
-        <h2 className="text-5xl font-bold mb-6">AI-Powered Outfit Styling</h2>
-        <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-          Upload your clothes. Our AI analyzes them and creates complete outfits with real shopping links from ASOS, SHEIN, Zara, and more.
-        </p>
-        <div className="flex gap-4 justify-center">
-          <Link href="/upload" className="px-8 py-4 bg-black text-white rounded-lg text-lg font-semibold hover:bg-gray-800">
-            Start Styling →
-          </Link>
-          <Link href="/wardrobe" className="px-8 py-4 border rounded-lg text-lg font-semibold hover:bg-gray-50">
-            View Wardrobe
-          </Link>
-        </div>
+    <div className="max-w-xl mx-auto p-8">
+      <h1 className="text-2xl font-bold mb-6">Upload Your Clothing</h1>
+      
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4 hover:border-black transition">
+        <input 
+          type="file" 
+          accept="image/*" 
+          onChange={handleFileChange} 
+          className="hidden" 
+          id="upload" 
+        />
+        <label htmlFor="upload" className="cursor-pointer text-blue-600 underline">
+          {preview ? 'Change photo' : 'Click here to upload a photo'}
+        </label>
       </div>
 
-      {/* Features */}
-      <div className="max-w-5xl mx-auto grid grid-cols-3 gap-8 px-6 pb-24">
-        <div className="p-6 border rounded-xl">
-          <div className="text-3xl mb-3">📸</div>
-          <h3 className="font-bold mb-2">Upload & Analyze</h3>
-          <p className="text-sm text-gray-600">Take a photo of any clothing item. AI detects color, style, fit, and fabric instantly.</p>
+      {preview && (
+        <img src={preview} alt="Preview" className="w-48 h-48 object-cover rounded-lg mb-4 mx-auto" />
+      )}
+
+      <button
+        onClick={handleUpload}
+        disabled={!file || analyzing}
+        className="w-full bg-black text-white py-3 rounded-lg disabled:opacity-50"
+      >
+        {analyzing ? 'AI is analyzing your photo...' : 'Analyze Item'}
+      </button>
+
+      {result?.success && (
+        <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+          <h2 className="font-bold text-green-800 mb-2">AI Analysis Complete!</h2>
+          <p><strong>Category:</strong> {result.item.category}</p>
+          <p><strong>Color:</strong> {result.item.color}</p>
+          <p><strong>Style:</strong> {result.item.style}</p>
+          <p><strong>Fit:</strong> {result.item.fit}</p>
+          <p><strong>Fabric:</strong> {result.item.fabric}</p>
+          <p><strong>Description:</strong> {result.item.description}</p>
+          <img src={result.item.image_url} className="w-32 h-32 object-cover mt-4 rounded border" />
         </div>
-        <div className="p-6 border rounded-xl">
-          <div className="text-3xl mb-3">✨</div>
-          <h3 className="font-bold mb-2">Generate Outfits</h3>
-          <p className="text-sm text-gray-600">Get 3 complete outfit combinations tailored to your item and preferences.</p>
+      )}
+
+      {result?.error && (
+        <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
+          <strong>Error:</strong> {result.error}
         </div>
-        <div className="p-
+      )}
+    </div>
+  );
+}

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 export default function OutfitCanvas({ baseImageUrl, pieces }: { baseImageUrl: string, pieces: any[] }) {
-  const canvasRef = useRef<<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
