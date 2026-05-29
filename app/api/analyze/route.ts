@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(bytes).toString('base64');
     const dataUrl = `data:${file.type};base64,${base64}`;
 
+    // Call Groq AI
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -46,17 +47,17 @@ export async function POST(req: NextRequest) {
             { type: 'image_url', image_url: { url: dataUrl } },
             { type: 'text', text: `Analyze this clothing item. Return ONLY a JSON object with this exact structure:
 {
-  "category": "bottom|top|shoes|accessory|dress|outerwear",
-  "color": "primary color name",
-  "style": "streetwear|classy|casual|y2k|minimal|vintage|sporty",
-  "fit": "oversized|slim|regular|cropped|wide-leg|skinny",
-  "fabric": "denim|cotton|leather|silk|linen|polyester|wool",
-  "aesthetic": "short description of vibe",
-  "description": "2 sentences describing the item",
+  "category": "bottom",
+  "color": "blue",
+  "style": "casual",
+  "fit": "regular",
+  "fabric": "denim",
+  "aesthetic": "minimal clean look",
+  "description": "Classic blue denim jeans with straight leg cut.",
   "occasions": ["casual"],
-  "matching_colors": ["white", "black"],
-  "matching_bottoms": ["jeans", "shorts"],
-  "matching_tops": ["t-shirt", "blazer"]
+  "matching_colors": ["white","black"],
+  "matching_bottoms": ["jeans"],
+  "matching_tops": ["t-shirt","shirt"]
 }`}
           ]
         }],
@@ -66,27 +67,45 @@ export async function POST(req: NextRequest) {
     });
 
     const groqData = await groqRes.json();
+
+    // 🔥 CRITICAL FIX: Check if Groq returned an error
+    if (!groqData.choices || groqData.choices.length === 0) {
+      console.error('Groq Error:', groqData);
+      return NextResponse.json({ 
+        error: `Groq AI Error: ${groqData.error?.message || JSON.stringify(groqData)}` 
+      }, { status: 500 });
+    }
+
     const aiText = groqData.choices[0].message.content;
 
+    // Extract JSON
     const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-    const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(aiText);
+    let analysis;
+    try {
+      analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(aiText);
+    } catch (e) {
+      return NextResponse.json({ 
+        error: `AI returned bad JSON: ${aiText.substring(0, 200)}` 
+      }, { status: 500 });
+    }
 
+    // Save to database
     const { data: item, error: dbError } = await supabase
       .from('clothing_items')
       .insert({
         user_id: userId,
         image_url: publicUrl,
-        category: analysis.category,
-        color: analysis.color,
-        style: analysis.style,
-        fit: analysis.fit,
-        fabric: analysis.fabric,
-        aesthetic: analysis.aesthetic,
-        description: analysis.description,
-        occasions: analysis.occasions,
-        matching_colors: analysis.matching_colors,
-        matching_bottoms: analysis.matching_bottoms,
-        matching_tops: analysis.matching_tops
+        category: analysis.category || 'unknown',
+        color: analysis.color || 'unknown',
+        style: analysis.style || 'casual',
+        fit: analysis.fit || 'regular',
+        fabric: analysis.fabric || 'cotton',
+        aesthetic: analysis.aesthetic || '',
+        description: analysis.description || '',
+        occasions: analysis.occasions || [],
+        matching_colors: analysis.matching_colors || [],
+        matching_bottoms: analysis.matching_bottoms || [],
+        matching_tops: analysis.matching_tops || []
       })
       .select()
       .single();
@@ -97,6 +116,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error(err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message || 'Unknown server error' }, { status: 500 });
   }
 }
